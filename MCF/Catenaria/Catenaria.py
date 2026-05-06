@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.optimize import fsolve
+import matplotlib.pyplot as plt
 
 def resolver_catenaria(xA, yA, xB, yB, L, rho, g, guess=[2.0, -1.0, 70.0]):
     """
@@ -62,3 +63,23 @@ print("=== Parábola (Aproximação) ===")
 print(f"C1 = {C1_p:.5f} m")
 print(f"C2 = {C2_p:.5f} m")
 print(f"T0 = {T0_p:.5f} N")
+
+# --- Plotagem dos Resultados ---
+x_plot = np.linspace(xA, xB, 100)
+a_c = T0_c / (rho * g)
+y_cat = y0_c + a_c * np.cosh((x_plot - x0_c) / a_c)
+
+a_p = (rho * g) / T0_p
+y_par = C1_p + C2_p * x_plot + (a_p / 2.0) * x_plot**2
+
+plt.figure(figsize=(8, 5))
+plt.plot(x_plot, y_cat, 'b-', label='Catenária (Exata)', linewidth=2)
+plt.plot(x_plot, y_par, 'r--', label='Parábola (Aproximação)', linewidth=1.5)
+plt.scatter([xA, xB], [yA, yB], color='black', zorder=5, label='Pontos A e B')
+
+plt.title('Comparação: Catenária vs Aproximação Parabólica')
+plt.xlabel('x (m)')
+plt.ylabel('y (m)')
+plt.grid(True, linestyle=':', alpha=0.7)
+plt.legend()
+plt.show()
