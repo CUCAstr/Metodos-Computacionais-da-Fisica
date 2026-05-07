@@ -20,8 +20,10 @@ C = gc2 * np.ones(N-1) * Dx**2
 U = np.zeros(N+1) # deslocamentos de todos os nos da corda
 U[1:-1] = la.solve(M, C) # deslocamentos dos nos internos
 
+x = np.linspace(0, L, N+1)
+
 plt.figure()
-plt.plot(U)
+plt.plot(x, U)
 plt.show()
 
 
