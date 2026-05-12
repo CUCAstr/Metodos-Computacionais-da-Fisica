@@ -25,6 +25,3 @@ x = np.linspace(0, L, N+1)
 plt.figure()
 plt.plot(x, U)
 plt.show()
-
-
-
