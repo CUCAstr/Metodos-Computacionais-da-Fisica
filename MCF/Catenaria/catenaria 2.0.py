@@ -42,3 +42,6 @@ U[1:-1] = la.solve(M, C) # deslocamentos dos nos internos
 plt.figure()
 plt.plot(x, U)
 plt.show()
+
+
+#NUMBA: Biblioteca para acelerar o código usando compilação Just-In-Time (JIT). Ela é especialmente útil para acelerar loops e operações numéricas intensivas, como as que ocorrem em simulações de física e engenharia. Para usar o Numba, basta importar a biblioteca e decorar as funções que você deseja acelerar com @numba.jit ou @numba.njit. O Numba irá compilar essas funções para código de máquina otimizado, o que pode resultar em um desempenho significativamente melhorado, especialmente para grandes arrays e cálculos complexos.
