@@ -3,64 +3,89 @@ import scipy.sparse as sps
 import scipy.linalg as la
 import matplotlib.pyplot as plt
 
-# Parâmetros Físicos
-L = 8.0  # m
-T = 5000.0  # N
-rho0 = 4.0  # kg/m
-
-# Dados dos amigos (massa, centro, raio)
-m1, x1, a1 = 40.0, 3.5, 0.3
-m2, x2, a2 = 55.0, 4.1, 0.27
-
-# Malha de discretização
-N = 250
+# =========================================================
+# Parâmetros Gerais e Discretização
+# =========================================================
+L = 1.0  # m
+T = 1000.0  # N
+N = 250  # discretização
 x = np.linspace(0, L, N+1)
 dx = L / N
+x_int = x[1:-1] # nós internos (1 até N-1)
 
-# Cálculo da densidade ponto a ponto (apenas nós internos)
-x_int = x[1:-1]
-rho_n = np.ones(N-1) * rho0
-
-# Adição da densidade da Gaussiana truncada para Amigo 1
-idx1 = np.abs(x_int - x1) <= a1
-rho_n[idx1] += (m1 / (2 * a1)) * np.exp(-((x_int[idx1] - x1)**2) / a1**2)
-
-# Adição da densidade da Gaussiana truncada para Amigo 2
-idx2 = np.abs(x_int - x2) <= a2
-rho_n[idx2] += (m2 / (2 * a2)) * np.exp(-((x_int[idx2] - x2)**2) / a2**2)
-
-# Construção da Matriz M exatamente como em corda_homog.py
+# Matriz M (diferenças finitas para derivada segunda)
+# Diagonal principal = -2, diagonais vizinhas = 1
 M = -sps.diags([np.ones(N-2), -2 * np.ones(N-1), np.ones(N-2)], [-1, 0, 1]).toarray()
 
-# Construção da Matriz S (Matriz de sobreposição)
-# Sabendo que S da aula usa (dx**2) / c2 e c2 = T / rho(x)
-# Logo: S = (dx**2) * rho(x) / T
-S = np.diag(dx**2 * rho_n / T)
+# =========================================================
+# EXERCÍCIO 1: Corda Homogênea
+# =========================================================
+rho_homog = 0.954  # kg/m
+c2_homog = T / rho_homog  # (m/s)²
 
-# Problema Generalizado de Autovalores e Autovetores
-lbd, X = la.eigh(M, S)
+# Matriz de sobreposição constante para o caso homogêneo
+S_homog = (dx**2 / c2_homog) * np.identity(N-1)
 
-# Cálculo das Frequências
-w = np.sqrt(lbd)
-freqs = w / (2 * np.pi) # Conversão de rad/s para Hz
+# Autovalores e autovetores
+lbd_homog, X_homog = la.eigh(M, S_homog)
+w_homog = np.sqrt(lbd_homog)
+f_homog = w_homog / (2 * np.pi)
 
-print("5 primeiras frequências de vibração (Hz):")
-print(freqs[:5])
+# =========================================================
+# EXERCÍCIO 2: Corda Não Homogênea
+# =========================================================
+rho0 = 0.954  # kg/m
+# δ = 0.5 g/m² = 0.5e-3 kg/m²
+delta = 0.5e-3  # kg/m²
 
-# Plotagem dos autoestados (5 primeiros modos)
+# Densidade variável dependente da posição x
+# ρ = ρ0 + (x - L/2)*δ
+rho_x = rho0 + (x_int - L/2) * delta
+
+# Matriz de sobreposição diagonal usando densidade variável
+# S_nn = dx² / c_n² = dx² * ρ(x_n) / T
+S_nao_homog = np.diag((dx**2 * rho_x) / T)
+
+# Autovalores e autovetores
+lbd_nao_homog, X_nao_homog = la.eigh(M, S_nao_homog)
+w_nao_homog = np.sqrt(lbd_nao_homog)
+f_nao_homog = w_nao_homog / (2 * np.pi)
+
+# =========================================================
+# RESPOSTAS (a) e (b)
+# =========================================================
+
+# --- (a) Variação da Frequência Fundamental ---
+var_f = f_nao_homog[0] - f_homog[0]
+
+print("=== Resultados (a): Variação da Frequência Fundamental ===")
+print(f"Frequência Ex1 (Homogênea):     {f_homog[0]:.7f} Hz")
+print(f"Frequência Ex2 (Não Homogênea): {f_nao_homog[0]:.7f} Hz")
+print(f"Variação (Ex2 - Ex1):           {var_f:.7e} Hz")
+
+# --- (b) Comparação Gráfica do 1º Modo Normal ---
+u_homog = np.zeros(N+1)
+u_homog[1:-1] = X_homog[:, 0]  # 1º modo homogêneo
+
+u_nao_homog = np.zeros(N+1)
+u_nao_homog[1:-1] = X_nao_homog[:, 0] # 1º modo não homogêneo
+
+# Normalização para comparação da forma de onda (amplitude máxima = 1)
+u_homog = u_homog / np.max(np.abs(u_homog))
+u_nao_homog = u_nao_homog / np.max(np.abs(u_nao_homog))
+
+# Alinhamento de fase (garante que ambas as ondas comecem "para cima")
+if u_homog[1] < 0:
+    u_homog = -u_homog
+if u_nao_homog[1] < 0:
+    u_nao_homog = -u_nao_homog
+
 plt.figure(figsize=(10, 6))
-for i in range(5):
-    u = np.zeros(N+1)
-    u[1:-1] = X[:, i]  # i-ésimo modo
-    
-    # Normalização gráfica do vetor para melhor visualização (opcional)
-    u = u / np.max(np.abs(u))
-    
-    plt.plot(x, u, label=f"Modo {i+1} ({freqs[i]:.2f} Hz)")
-
-plt.title("Os 5 Primeiros Modos Normais da Corda")
-plt.xlabel("Posição x (m)")
-plt.ylabel("Amplitude Normalizada")
+plt.plot(x, u_homog, label='Ex 1: Corda Homogênea', linestyle='--', color='blue')
+plt.plot(x, u_nao_homog, label='Ex 2: Corda Não Homogênea', color='red', alpha=0.7)
+plt.title('Comparação do Primeiro Modo Normal')
+plt.xlabel('Posição x (m)')
+plt.ylabel('Amplitude Normalizada')
 plt.legend()
 plt.grid(True)
 plt.show()
