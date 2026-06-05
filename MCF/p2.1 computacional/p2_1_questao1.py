@@ -2,70 +2,55 @@ import numpy as np
 import numpy.fft as fft
 import matplotlib.pyplot as plt
 
-'''
-LOM3227 — Métodos Computacionais da Física
-Resolução da P2.1c - Questão 1
-'''
+def f(t):
+    # f(t) da questao 1
+    y = np.zeros_like(t)
+    y[(t >= -1) & (t < 0)] = -1
+    y[(t >= 0) & (t <= 1)] = 1
+    return y
 
-def f_temporal(t):
-    """Função f(t) conforme definida na Eq (1) da prova"""
-    res = np.zeros_like(t)
-    res[(t >= -1) & (t < 0)] = -1
-    res[(t >= 0) & (t <= 1)] = 1
+def F_analitica(w):
+    # formula da transformada exata dada no pdf
+    res = np.zeros_like(w, dtype=complex)
+    m = (w != 0)
+    res[m] = -1j * np.sqrt(2/np.pi) * (1 - np.cos(w[m])) / w[m]
     return res
 
-def F_exata(w):
-    """Transformada de Fourier analítica fornecida"""
-    # Evitar divisão por zero em w=0 (limite é 0)
-    with np.errstate(divide='ignore', invalid='ignore'):
-        res = -1j * np.sqrt(2/np.pi) * (1 - np.cos(w)) / w
-    res[w == 0] = 0
-    return res
+# parametros
+T = 100
+N = 2**16
+dt = T/N
+t = np.linspace(-T/2, T/2, N, endpoint=False)
 
-# Parâmetros para a FFT (Dica 1: período de observação bem grande)
-T_obs = 60.0        
-N_fft = 2**15       # Alta amostragem para minimizar aliasing e dispersão
-dt = T_obs / N_fft
+sinal = f(t)
 
-# Vetor de tempo centrado para amostrar a função f(t) definida em [-1, 1]
-t_fft = np.linspace(-T_obs/2, T_obs/2, N_fft, endpoint=False)
+# fft
+sinal_p = fft.ifftshift(sinal)
+FD = fft.fft(sinal_p)
+freqs = fft.fftfreq(N, d=dt)
+w_d = 2 * np.pi * freqs
 
-# Amostragem do sinal
-sinal = f_temporal(t_fft)
+# correcao de escala
+F_d = (N / (T * np.sqrt(2 * np.pi))) * FD
 
-# Cálculo da FFT
-# Rotacionamos o sinal para que t=0 seja a primeira posição (convenção FFT)
-sinal_shifted = fft.ifftshift(sinal)
-FD_w = fft.fft(sinal_shifted)
-freqs = fft.fftfreq(N_fft, d=dt)
-w_discreta = 2 * np.pi * freqs
+# plot
+mask = (w_d >= 0) & (w_d <= 6 * np.pi)
+w_p = w_d[mask]
+y_d = np.absolute(F_d[mask])
 
-# Relação teórica vs discreta (Dica 3)
-# F(w) = (N/T) * (1/sqrt(2pi)) * FD(w)
-F_discreta = (N_fft / T_obs) * (1 / np.sqrt(2 * np.pi)) * FD_w
+w_c = np.linspace(0.01, 6 * np.pi, 500)
+y_a = np.absolute(F_analitica(w_c))
 
-# Filtragem para o intervalo solicitado: 0 <= w <= 6pi
-mask = (w_discreta >= 0) & (w_discreta <= 6 * np.pi)
-w_plot = w_discreta[mask]
-abs_F_disc = np.absolute(F_discreta[mask])
+# normalizando
+y_d = y_d / np.max(y_d)
+y_a = y_a / np.max(y_a)
 
-# Cálculo da solução exata para comparação
-w_cont = np.linspace(0.001, 6 * np.pi, 1000)
-abs_F_exata = np.absolute(F_exata(w_cont))
-
-# Normalização (Dica 2: máximos parecidos)
-abs_F_disc /= np.max(abs_F_disc)
-abs_F_exata /= np.max(abs_F_exata)
-
-# Gráfico
-plt.figure(figsize=(10, 6))
-plt.plot(w_cont, abs_F_exata, 'r-', lw=2, label='Analítica $|F(\omega)|$')
-plt.plot(w_plot, abs_F_disc, 'b--', label='FFT $|F(\omega)|$ (Normalizada)')
-plt.title('Questão 1: Transformada de Fourier Exata vs Discreta')
-plt.xlabel('$\omega$ (rad/s)')
-plt.ylabel('Módulo Normalizado')
-plt.xlim(0, 6 * np.pi)
+plt.figure()
+plt.plot(w_c, y_a, 'r-', label='Exata')
+plt.plot(w_p, y_d, 'b.', alpha=0.5, label='FFT')
+plt.title('Questao 1')
+plt.xlabel('omega')
+plt.ylabel('|F(omega)|')
 plt.legend()
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
+plt.grid()
 plt.show()

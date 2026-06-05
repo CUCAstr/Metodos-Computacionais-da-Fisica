@@ -1,85 +1,87 @@
 import numpy as np
 import numpy.fft as fft
 import matplotlib.pyplot as plt
-from scipy.integrate import solve_ivp
 
-'''
-LOM3227 — Métodos Computacionais da Física
-Resolução da P2.1c - Questão 2
-'''
+# dados
+a = 1.3
+w0 = 1.5
+g = 9.81
+l = 0.7
+m = 0.5
+th0 = np.pi/6
 
-# Dados do problema
-a = 1.3         # amplitude do vagão (m)
-w0 = 1.5        # freq. do vagão (rad/s)
-g = 9.81        # gravidade (m/s^2)
-l = 0.7         # comprimento da haste (m)
-m = 0.5         # massa (kg)
-theta0 = np.pi / 6  # condição inicial (rad)
+def f_acel(t, th):
+    # equacao do pendulo no vagem
+    return (a*w0**2*np.cos(w0*t)*np.cos(th) - g*np.sin(th))/l
 
-def edo_pendulo(t, y):
-    """
-    EDO derivada via Mecânica Lagrangiana:
-    theta'' = [a * w0^2 * cos(w0*t) * cos(theta) - g * sin(theta)] / l
-    """
-    theta, omega = y
-    dtheta = omega
-    domega = (a * w0**2 * np.cos(w0*t) * np.cos(theta) - g * np.sin(theta)) / l
-    return [dtheta, domega]
+# item a - rk4
+tmax = 10.0
+Nt = 1000
+t = np.linspace(0, tmax, Nt)
+dt = t[1]-t[0]
 
-# -----------------------------------------------------------------------------
-# Item (a): Integração numérica para 0 <= t <= 10s
-# -----------------------------------------------------------------------------
-t_span_a = (0, 10)
-t_eval_a = np.linspace(0, 10, 1000)
-sol_a = solve_ivp(edo_pendulo, t_span_a, [theta0, 0], t_eval=t_eval_a, method='RK45')
+theta = np.zeros(Nt)
+omega = np.zeros(Nt)
+theta[0] = th0
+omega[0] = 0
 
-plt.figure(figsize=(10, 5))
-plt.plot(sol_a.t, sol_a.y[0], 'g', label='$\\theta(t)$')
-plt.title('Questão 2a: Evolução de $\\theta(t)$ para $t \\in [0, 10]$ s')
-plt.xlabel('$t$ (s)')
-plt.ylabel('$\\theta$ (rad)')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
+for i in range(Nt-1):
+    # passo rk4
+    k1th = omega[i]
+    k1om = f_acel(t[i], theta[i])
+    
+    k2th = omega[i] + 0.5*dt*k1om
+    k2om = f_acel(t[i] + 0.5*dt, theta[i] + 0.5*dt*k1th)
+    
+    k3th = omega[i] + 0.5*dt*k2om
+    k3om = f_acel(t[i] + 0.5*dt, theta[i] + 0.5*dt*k2th)
+    
+    k4th = omega[i] + dt*k3om
+    k4om = f_acel(t[i] + dt, theta[i] + dt*k3th)
+    
+    theta[i+1] = theta[i] + (dt/6)*(k1th + 2*k2th + 2*k3th + k4th)
+    omega[i+1] = omega[i] + (dt/6)*(k1om + 2*k2om + 2*k3om + k4om)
+
+plt.figure()
+plt.plot(t, theta)
+plt.title('theta(t)')
 plt.show()
 
-# -----------------------------------------------------------------------------
-# Item (b): Análise de Fourier (FFT)
-# -----------------------------------------------------------------------------
-T_obs_b = 200.0      # Tempo de observação: 200 s
-N_samples = 2**13    # Amostragem: 8192 pontos
-t_fft_b = np.linspace(0, T_obs_b, N_samples, endpoint=False)
+# item b - fft
+T2 = 200.0
+N2 = 2**13
+t2 = np.linspace(0, T2, N2, endpoint=False)
+dt2 = t2[1]-t2[0]
 
-# Resolver a EDO para o tempo longo solicitado
-sol_b = solve_ivp(edo_pendulo, (0, T_obs_b), [theta0, 0], t_eval=t_fft_b, method='RK45')
-theta_sinal = sol_b.y[0]
+th2 = np.zeros(N2)
+om2 = np.zeros(N2)
+th2[0] = th0
+om2[0] = 0
 
-# Cálculo da FFT
-fft_res = fft.fft(theta_sinal)
-freqs_b = fft.fftfreq(N_samples, d=(T_obs_b/N_samples))
-w_vals = 2 * np.pi * freqs_b
-espectro = np.absolute(fft_res)**2
+for i in range(N2-1):
+    k1th = om2[i]
+    k1om = f_acel(t2[i], th2[i])
+    k2th = om2[i] + 0.5*dt2*k1om
+    k2om = f_acel(t2[i]+0.5*dt2, th2[i]+0.5*dt2*k1th)
+    k3th = om2[i] + 0.5*dt2*k2om
+    k3om = f_acel(t2[i]+0.5*dt2, th2[i]+0.5*dt2*k2th)
+    k4th = om2[i] + dt2*k3om
+    k4om = f_acel(t2[i]+dt2, th2[i]+dt2*k3th)
+    th2[i+1] = th2[i] + (dt2/6)*(k1th + 2*k2th + 2*k3th + k4th)
+    om2[i+1] = om2[i] + (dt2/6)*(k1om + 2*k2om + 2*k3om + k4om)
 
-# Frequências teóricas para comparação
-wp = np.sqrt(g / l)  # frequência natural de oscilação do pêndulo
+trans = fft.fft(th2)
+w_v = 2*np.pi*fft.fftfreq(N2, dt2)
+espectro = np.abs(trans)**2
 
-# Gráfico do Espectro de Frequências
-plt.figure(figsize=(10, 6))
-# Foco no intervalo de baixas frequências relevante
-mask_b = (w_vals > 0) & (w_vals < 10)
-plt.plot(w_vals[mask_b], espectro[mask_b], 'k', lw=1.5)
-plt.axvline(w0, color='r', linestyle='--', alpha=0.7, label=f'Vagão $\omega_0 = {w0:.2f}$')
-plt.axvline(wp, color='b', linestyle='--', alpha=0.7, label=f'Natural $\omega_p = {wp:.2f}$')
+wp = np.sqrt(g/l)
 
-plt.title('Questão 2b: Análise de Fourier de $\\theta(t)$')
-plt.xlabel('$\omega$ (rad/s)')
-plt.ylabel('Potência Espectral (u.a.)')
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
+plt.figure()
+mask = (w_v > 0) & (w_v < 10)
+plt.plot(w_v[mask], espectro[mask])
+plt.axvline(w0, color='r', ls='--')
+plt.axvline(wp, color='b', ls='--')
 plt.show()
 
-print(f"--- Resultados Questão 2 ---")
-print(f"Frequência do vagão (w0): {w0:.3f} rad/s")
-print(f"Frequência natural calculada (wp): {wp:.3f} rad/s")
-print(f"O gráfico confirma a presença de picos em ambas as frequências.")
+print("w0:", w0)
+print("wp:", wp)
